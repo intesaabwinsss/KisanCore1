@@ -1,6 +1,6 @@
 {
-  "name": "Remix Remix Remix Remix Remix Copy of KisanMandi",
-  "description": "An all-in-one AI-powered platform connecting farmers and artisans directly to buyers with fair pricing, quality assessment, and digital commerce.",
+  "name": "KisanDirect Marketplace",
+  "description": "An all-in-one AI-powered platform connecting farmers directly to consumers and buyers with MongoDB Atlas persistence, fair pricing, and cold logistics.",
   "requestFramePermissions": [
     "camera",
     "microphone"

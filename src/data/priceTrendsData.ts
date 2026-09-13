@@ -53,7 +53,7 @@ function generateTrendPoints(
   intervalDays: number = 1
 ): HistoricalDataPoint[] {
   const points: HistoricalDataPoint[] = [];
-  const today = new Date('2026-08-28T12:00:00Z');
+  const today = new Date();
 
   for (let i = days; i >= 0; i -= intervalDays) {
     const d = new Date(today);

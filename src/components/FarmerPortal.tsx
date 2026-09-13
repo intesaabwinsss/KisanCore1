@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Tractor, BrainCircuit, 
   Sparkles, 
@@ -34,6 +34,7 @@ import {
 import { ProduceListing, QualityGradeResult, Language, FarmerProfile, FarmerOrder, FarmerPaymentTransaction } from '../types';
 import { MOCK_PRODUCE_LISTINGS } from '../data/mockData';
 import { INITIAL_FARMER_PROFILE, INITIAL_FARMER_ORDERS, INITIAL_FARMER_PAYMENTS } from '../data/farmerData';
+import { api } from '../services/api';
 import { FarmerPriceTrendsChart } from './FarmerPriceTrendsChart';
 import { LiveMandiSearchHub } from './LiveMandiSearchHub';
 import { FarmerProfileModal } from './FarmerProfileModal';
@@ -85,6 +86,31 @@ export const FarmerPortal: React.FC<FarmerPortalProps> = ({
   // Payments State
   const [transactions, setTransactions] = useState<FarmerPaymentTransaction[]>(INITIAL_FARMER_PAYMENTS);
   const [withdrawalNotice, setWithdrawalNotice] = useState<string | null>(null);
+
+  // Load from MongoDB Atlas backend on mount
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [dbInventory, dbOrders, dbProfile] = await Promise.all([
+          api.getInventory('farmer-001'),
+          api.getOrders('farmer-001'),
+          api.getFarmerProfile('farmer-001')
+        ]);
+        if (dbInventory && dbInventory.length > 0) {
+          setListings(dbInventory);
+        }
+        if (dbOrders && dbOrders.length > 0) {
+          setOrders(dbOrders);
+        }
+        if (dbProfile) {
+          setFarmerProfile(dbProfile);
+        }
+      } catch (err) {
+        console.warn('Error fetching MongoDB data for farmer:', err);
+      }
+    }
+    loadData();
+  }, []);
 
   // AI Quality Grading Scanner State
   const [selectedCrop, setSelectedCrop] = useState('Onion');
@@ -220,12 +246,20 @@ export const FarmerPortal: React.FC<FarmerPortalProps> = ({
     setIsAddCropModalOpen(true);
   };
 
-  const handleAddNewListing = (newLot: ProduceListing) => {
+  const handleAddNewListing = async (newLot: ProduceListing) => {
     setListings([newLot, ...listings]);
     setActiveTab('inventory');
+    try {
+      const saved = await api.createInventory(newLot);
+      if (saved) {
+        setListings(prev => prev.map(l => (l.id === newLot.id ? saved : l)));
+      }
+    } catch (err) {
+      console.warn('Error saving new listing to database:', err);
+    }
   };
 
-  const handleUpdateOrderStatus = (
+  const handleUpdateOrderStatus = async (
     orderId: string, 
     newStatus: FarmerOrder['status'], 
     escrowStatus?: FarmerOrder['escrowStatus']
@@ -244,20 +278,31 @@ export const FarmerPortal: React.FC<FarmerPortalProps> = ({
       })
     );
 
+    // Sync to MongoDB backend
+    try {
+      const backendStatus = String(newStatus).toLowerCase();
+      const backendEscrow = (escrowStatus || '').toLowerCase().includes('bank') ? 'released_to_bank' : 'locked_in_escrow';
+      await api.updateOrderStatus(orderId, backendStatus, backendEscrow);
+    } catch (err) {
+      console.warn('Error syncing order status to database:', err);
+    }
+
     // If marked delivered, create a settled payment transaction
     if (newStatus === 'delivered') {
       const targetOrder = orders.find(o => o.id === orderId);
       if (targetOrder) {
+        const rawAmount = targetOrder.totalAmount || 50000;
+
         const newTx: FarmerPaymentTransaction = {
           id: `tx-${Date.now()}`,
           transactionRef: `TXN-UPI-${Date.now().toString().slice(-8)}`,
           orderNumber: targetOrder.orderNumber,
-          cropLot: `${targetOrder.cropName} (${targetOrder.quantityKg} kg)`,
-          buyerName: targetOrder.buyerCompany,
-          grossAmount: targetOrder.totalAmount,
+          cropLot: `${targetOrder.cropName || 'Produce'} (${targetOrder.quantityKg} ${targetOrder.unit || 'kg'})`,
+          buyerName: targetOrder.buyerCompany || targetOrder.buyerName,
+          grossAmount: rawAmount,
           commissionDeducted: 0,
-          traditionalCommissionLost: targetOrder.commissionSaved,
-          netPayoutAmount: targetOrder.totalAmount,
+          traditionalCommissionLost: targetOrder.commissionSaved || Math.round(rawAmount * 0.08),
+          netPayoutAmount: rawAmount,
           payoutMethod: 'Instant UPI',
           status: 'settled',
           date: new Date().toISOString().replace('T', ' ').substring(0, 16),

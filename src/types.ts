@@ -768,6 +768,37 @@ export interface CropDistressAlert {
   eligibleFarmers: MatchingFarmerListing[];
 }
 
+export interface MandiPriceRecord {
+  id: string;
+  state: string;
+  district: string;
+  market: string;
+  commodity: string;
+  variety: string;
+  grade?: string;
+  arrivalDate: string;
+  minPriceQuintal: number;
+  maxPriceQuintal: number;
+  modalPriceQuintal: number;
+  minPriceKg: number;
+  maxPriceKg: number;
+  modalPriceKg: number;
+  kisanDirectFairPriceKg: number;
+  arrivalsTonnes?: number;
+  source: string;
+  cachedAt: string;
+}
+
+export interface MandiPriceSearchResponse {
+  success: boolean;
+  records: MandiPriceRecord[];
+  total: number;
+  source: string;
+  apiKeyConfigured: boolean;
+  lastUpdated: string;
+  message?: string;
+}
+
 
 
 

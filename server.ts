@@ -5,6 +5,8 @@ import twilio from 'twilio';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { getForecast } from './src/data/forecastData';
+import { connectDatabase, getDatabaseStatus } from './server/config/database';
+import { apiRouter } from './server/routes/apiRoutes';
 
 dotenv.config();
 
@@ -13,6 +15,9 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '30mb' }));
 app.use(express.urlencoded({ extended: true, limit: '30mb' }));
+
+// Mount MongoDB Atlas REST API Router
+app.use('/api', apiRouter);
 
 // Lazy initialize Gemini AI client
 let geminiClient: GoogleGenAI | null = null;
@@ -30,11 +35,12 @@ function getGemini(): GoogleGenAI | null {
   return geminiClient;
 }
 
-// Health check endpoint
+// Enhanced Health check endpoint with MongoDB Atlas status
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    database: getDatabaseStatus(),
     timestamp: new Date().toISOString(),
   });
 });
@@ -1523,6 +1529,14 @@ app.post('/api/notifications/whatsapp', async (req, res) => {
 
 // Setup Vite middleware
 async function startServer() {
+  // Initialize MongoDB Atlas connection
+  try {
+    const dbResult = await connectDatabase();
+    console.log(`[Database Init] ${dbResult.message}`);
+  } catch (err: any) {
+    console.warn('[Database Init] Startup connection error:', err?.message);
+  }
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -1538,7 +1552,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`KisanMandi Server running at http://0.0.0.0:${PORT}`);
+    console.log(`KisanDirect Server running at http://0.0.0.0:${PORT}`);
   });
 }
 

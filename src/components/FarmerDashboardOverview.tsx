@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Tractor,
   Sparkles,
@@ -32,6 +32,7 @@ import { AddEditProductModal } from './AddEditProductModal';
 import { FarmerOrderDetailsModal } from './FarmerOrderDetailsModal';
 import { TransactionLedgerModal } from './TransactionLedgerModal';
 import { MarketPricesModal } from './MarketPricesModal';
+import { api } from '../services/api';
 
 const INITIAL_MARKET_PRICES: MarketPriceItem[] = [
   {
@@ -274,26 +275,65 @@ export const FarmerDashboardOverview: React.FC<FarmerDashboardOverviewProps> = (
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
 
-  // Price Simulation
-  const handleRefreshPrices = () => {
+  // Load real Government Mandi Prices on mount
+  useEffect(() => {
+    fetchRealMandiPrices();
+  }, []);
+
+  const fetchRealMandiPrices = async () => {
     setIsRefreshingPrices(true);
-    setTimeout(() => {
-      setMarketPrices((prev) =>
-        prev.map((item) => {
-          const delta = (Math.random() * 2 - 0.8).toFixed(1);
-          const numDelta = Number(delta);
-          const newPrice = Math.max(12, Number((item.currentPrice + numDelta).toFixed(1)));
-          return {
-            ...item,
-            currentPrice: newPrice,
-            changeAmount: Math.abs(numDelta),
-            trend: numDelta > 0 ? 'up' : numDelta < 0 ? 'down' : 'stable',
-            lastUpdated: 'Just now',
-          };
-        })
-      );
+    try {
+      const res = await api.getMandiPrices({ limit: 10 });
+      if (res && res.success && res.records && res.records.length > 0) {
+        // Map top commodities into MarketPriceItem format
+        const commodityMap = new Map<string, typeof res.records[0]>();
+        res.records.forEach((r) => {
+          if (!commodityMap.has(r.commodity)) {
+            commodityMap.set(r.commodity, r);
+          }
+        });
+
+        const emojiMap: Record<string, string> = {
+          Tomato: '🍅',
+          Potato: '🥔',
+          Onion: '🧅',
+          Garlic: '🧄',
+          Ginger: '🫚',
+          'Green Chilli': '🌶️',
+          Apple: '🍎',
+          Wheat: '🌾',
+          Rice: '🍚',
+          Mustard: '🌱',
+        };
+
+        const mappedPrices: MarketPriceItem[] = Array.from(commodityMap.values()).slice(0, 4).map((r, i) => ({
+          id: `gov-price-${r.id || i}`,
+          name: r.commodity,
+          emoji: emojiMap[r.commodity] || '🌾',
+          variety: `${r.variety || 'FAQ'} (${r.market} APMC)`,
+          currentPrice: r.modalPriceKg,
+          previousPrice: r.minPriceKg,
+          trend: r.modalPriceKg >= r.minPriceKg ? 'up' : 'stable',
+          changeAmount: parseFloat(Math.abs(r.modalPriceKg - r.minPriceKg).toFixed(1)),
+          unit: 'kg',
+          lastUpdated: 'Live (AGMARKNET)',
+          highDemand: r.commodity === 'Tomato' || r.commodity === 'Onion',
+        }));
+
+        if (mappedPrices.length > 0) {
+          setMarketPrices(mappedPrices);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load live mandi prices:', err);
+    } finally {
       setIsRefreshingPrices(false);
-    }, 600);
+    }
+  };
+
+  // Price Simulation / Refresh
+  const handleRefreshPrices = () => {
+    fetchRealMandiPrices();
   };
 
   // Product CRUD

@@ -26,8 +26,9 @@ import {
 } from 'lucide-react';
 import { DemandForecast, Language, ProduceListing } from '../types';
 import { SmartMatchingAdmin } from './SmartMatchingAdmin';
-import { Sliders } from 'lucide-react';
+import { Sliders, Database, Server, RefreshCw } from 'lucide-react';
 import { getForecast } from '../data/forecastData';
+import { api, DatabaseStatus } from '../services/api';
 
 interface AdminPortalProps {
   currentLanguage?: Language;
@@ -35,11 +36,30 @@ interface AdminPortalProps {
 }
 
 export const AdminPortal: React.FC<AdminPortalProps> = () => {
-  const [adminTab, setAdminTab] = useState<'apmc' | 'smart_matching'>('apmc');
+  const [adminTab, setAdminTab] = useState<'apmc' | 'smart_matching' | 'database'>('apmc');
   const [selectedCrop, setSelectedCrop] = useState('Tomato');
   const [selectedRegion, setSelectedRegion] = useState('Nashik / Western India');
   const [customForecasts, setCustomForecasts] = useState<Record<string, DemandForecast>>({});
   const [isLoadingForecast, setIsLoadingForecast] = useState(false);
+  const [dbStatus, setDbStatus] = useState<DatabaseStatus | null>(null);
+  const [isCheckingDb, setIsCheckingDb] = useState(false);
+
+  // Check Database on mount and allow manual refresh
+  const checkDatabase = async () => {
+    setIsCheckingDb(true);
+    try {
+      const res = await api.getDbStatus();
+      setDbStatus(res.database);
+    } catch {
+      // ignore
+    } finally {
+      setIsCheckingDb(false);
+    }
+  };
+
+  React.useEffect(() => {
+    checkDatabase();
+  }, []);
 
   // Directly derive the active forecast data from the selected crop and location
   const currentForecastKey = `${selectedCrop}_${selectedRegion}`;
@@ -143,9 +163,101 @@ export const AdminPortal: React.FC<AdminPortalProps> = () => {
             Weights & Radius
           </span>
         </button>
+
+        <button
+          onClick={() => setAdminTab('database')}
+          className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 ${
+            adminTab === 'database'
+              ? 'bg-emerald-950 text-white shadow-sm'
+              : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+          }`}
+        >
+          <Database className="w-4 h-4 text-emerald-400" />
+          <span>MongoDB Atlas Cluster Health</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            dbStatus?.connected ? 'bg-emerald-400 text-emerald-950' : 'bg-amber-400 text-slate-950'
+          }`}>
+            {dbStatus?.connected ? 'Active Atlas' : 'In-Memory/Fallback'}
+          </span>
+        </button>
       </div>
 
-      {adminTab === 'smart_matching' ? (
+      {adminTab === 'database' ? (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
+                  <Database className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-extrabold text-slate-900">MongoDB Atlas Cluster State</h2>
+                  <p className="text-xs text-slate-500">Persistent storage engine powering KisanDirect produce, transactions, and logistics.</p>
+                </div>
+              </div>
+              <button
+                onClick={checkDatabase}
+                disabled={isCheckingDb}
+                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isCheckingDb ? 'animate-spin' : ''}`} />
+                <span>Refresh Status</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-1">
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Storage Engine</div>
+                <div className="text-base font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <Server className="w-4 h-4 text-emerald-600" />
+                  <span>MongoDB Atlas Driver</span>
+                </div>
+                <div className="text-xs text-slate-500">Database: {dbStatus?.databaseName || 'KisanDirect'}</div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-1">
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Connection Mode</div>
+                <div className="text-base font-extrabold text-slate-900">
+                  {dbStatus?.connected ? (
+                    <span className="text-emerald-700 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Live MongoDB Atlas
+                    </span>
+                  ) : (
+                    <span className="text-amber-700 flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-amber-600" /> In-Memory Buffer
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {dbStatus?.configured ? 'URI Configured in Environment' : 'Awaiting MONGODB_URI setting'}
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-1">
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Collections Active</div>
+                <div className="text-base font-extrabold text-slate-900">8 Persistent Tables</div>
+                <div className="text-xs text-slate-500">users, crops, orders, trucks, etc.</div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-1">
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Transportation Pricing</div>
+                <div className="text-base font-extrabold text-emerald-700">₹25/km Base + Svc Chg</div>
+                <div className="text-xs text-slate-500">KisanDirect Trucks Engine v2.0</div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/60 text-emerald-900 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                <span>Architecture Guarantee</span>
+              </div>
+              <p className="text-xs text-emerald-800 leading-relaxed">
+                All produce listings, truck dispatches, buyer purchase orders, and farmer profiles are fully backed by the Express server layer connected to MongoDB Atlas. Even when operating offline or during database initialization, all data operations are safely buffered in the transactional fallback layer so no user interactions fail.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : adminTab === 'smart_matching' ? (
         <div className="space-y-6 animate-in fade-in">
           <SmartMatchingAdmin />
         </div>

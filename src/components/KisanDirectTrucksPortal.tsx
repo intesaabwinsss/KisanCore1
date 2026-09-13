@@ -126,11 +126,11 @@ export const KisanDirectTrucksPortal: React.FC<KisanDirectTrucksPortalProps> = (
     }
   };
 
-  const handleFinalDispatch = (e: React.FormEvent) => {
+  const handleFinalDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep2()) return;
 
-    const created = dispatchTrip({
+    const created = await dispatchTrip({
       crop: formCrop,
       quantityKg: formQuantityKg,
       pickupLocation: formPickup,

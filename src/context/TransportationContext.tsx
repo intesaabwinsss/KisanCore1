@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { TruckTrip, AvailableTruck, TruckOwnershipType } from '../types';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { TruckTrip, AvailableTruck, TruckOwnershipType, TripStatus } from '../types';
 import { calculateTransportationPricing } from '../utils/transportationPricing';
+import { api } from '../services/api';
 
 const INITIAL_TRIPS: TruckTrip[] = [
   {
@@ -168,10 +169,12 @@ interface DispatchTripInput {
 interface TransportationContextType {
   trips: TruckTrip[];
   availableTrucks: AvailableTruck[];
-  dispatchTrip: (input: DispatchTripInput) => TruckTrip;
+  dispatchTrip: (input: DispatchTripInput) => Promise<TruckTrip>;
   selectedTripForModal: TruckTrip | null;
   setSelectedTripForModal: (trip: TruckTrip | null) => void;
-  deleteTrip: (id: string) => void;
+  deleteTrip: (id: string) => Promise<void>;
+  refreshTrips: () => Promise<void>;
+  isLoading: boolean;
   stats: {
     availableTrucksCount: number;
     activeTripsCount: number;
@@ -185,28 +188,37 @@ interface TransportationContextType {
 const TransportationContext = createContext<TransportationContextType | undefined>(undefined);
 
 export const TransportationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [trips, setTrips] = useState<TruckTrip[]>(() => {
-    try {
-      const saved = localStorage.getItem('kisandirect_truck_trips');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.warn('Could not parse kisandirect_truck_trips', e);
-    }
-    return INITIAL_TRIPS;
-  });
-
-  const [availableTrucks] = useState<AvailableTruck[]>(INITIAL_AVAILABLE_TRUCKS);
+  const [trips, setTrips] = useState<TruckTrip[]>(INITIAL_TRIPS);
+  const [availableTrucks, setAvailableTrucks] = useState<AvailableTruck[]>(INITIAL_AVAILABLE_TRUCKS);
   const [selectedTripForModal, setSelectedTripForModal] = useState<TruckTrip | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load from MongoDB backend on mount
+  const refreshTrips = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [fetchedTrips, fetchedTrucks] = await Promise.all([
+        api.getTrips(),
+        api.getTrucks()
+      ]);
+      if (fetchedTrips && fetchedTrips.length > 0) {
+        setTrips(fetchedTrips);
+      }
+      if (fetchedTrucks && fetchedTrucks.length > 0) {
+        setAvailableTrucks(fetchedTrucks);
+      }
+    } catch (e) {
+      console.warn('Could not load trips from backend API, using local buffer', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('kisandirect_truck_trips', JSON.stringify(trips));
-    } catch (e) {
-      console.warn('Could not save kisandirect_truck_trips', e);
-    }
-  }, [trips]);
+    refreshTrips();
+  }, [refreshTrips]);
 
-  const dispatchTrip = (input: DispatchTripInput): TruckTrip => {
+  const dispatchTrip = async (input: DispatchTripInput): Promise<TruckTrip> => {
     const pricing = calculateTransportationPricing(
       input.distanceKm,
       input.baseCostPerKm,
@@ -233,8 +245,8 @@ export const TransportationProvider: React.FC<{ children: ReactNode }> = ({ chil
       assignedDriver = input.customDriverName || 'Self / Farm Driver';
     }
 
-    const newTrip: TruckTrip = {
-      id: `TRP-${Math.floor(100 + Math.random() * 900)}`,
+    const payload = {
+      tripId: `TRP-${Math.floor(100 + Math.random() * 900)}`,
       lotId: `LOT-${Math.floor(100 + Math.random() * 900)}`,
       crop: input.crop,
       quantityKg: Number(input.quantityKg) || 1000,
@@ -242,29 +254,53 @@ export const TransportationProvider: React.FC<{ children: ReactNode }> = ({ chil
       destinationLocation: input.destinationLocation,
       distanceKm: pricing.distance,
       baseCostPerKm: pricing.baseCostPerKm,
+      applicableRatePerKm: pricing.baseCostPerKm,
       ownershipType: input.ownershipType,
+      transportationOwnership: input.ownershipType,
       truckType: input.truckType,
       vehicleNumber: assignedVehicle,
       driverName: assignedDriver,
       driverPhone: assignedPhone,
       requiredDate: input.requiredDate || new Date().toISOString().split('T')[0],
       targetTempC: Number(input.targetTempC) || 12,
-      status: 'In Transit',
+      status: 'In Transit' as TripStatus,
+      notes: input.notes,
+    };
+
+    // Optimistically update UI
+    const optimisticTrip: TruckTrip = {
+      id: payload.tripId,
+      ...payload,
       baseCost: pricing.baseCost,
       serviceCharge: pricing.totalServiceCharge,
       totalCost: pricing.totalCost,
       dispatchedAt: formattedNow,
       eta: 'In Transit (Scheduled)',
       routeProgressPct: 15,
-      notes: input.notes,
     };
+    setTrips(prev => [optimisticTrip, ...prev]);
 
-    setTrips(prev => [newTrip, ...prev]);
-    return newTrip;
+    // Persist to MongoDB Atlas via API
+    try {
+      const saved = await api.createTrip(payload);
+      if (saved) {
+        setTrips(prev => prev.map(t => (t.id === optimisticTrip.id ? saved : t)));
+        return saved;
+      }
+    } catch (err) {
+      console.warn('Trip saved to local state, backend sync deferred:', err);
+    }
+
+    return optimisticTrip;
   };
 
-  const deleteTrip = (id: string) => {
+  const deleteTrip = async (id: string) => {
     setTrips(prev => prev.filter(t => t.id !== id));
+    try {
+      await api.updateTripStatus(id, 'Cancelled');
+    } catch (err) {
+      console.warn('Error deleting trip on server:', err);
+    }
   };
 
   // Compute live statistics
@@ -293,6 +329,8 @@ export const TransportationProvider: React.FC<{ children: ReactNode }> = ({ chil
         selectedTripForModal,
         setSelectedTripForModal,
         deleteTrip,
+        refreshTrips,
+        isLoading,
         stats,
       }}
     >
@@ -308,3 +346,4 @@ export const useTransportation = () => {
   }
   return context;
 };
+
