@@ -1,0 +1,1 @@
+Google Translate dropdown issue resolved. The issue was React re-rendering and overwriting the translated DOM nodes. The translation state has been moved so it doesn't trigger global React re-renders, allowing the translation script to modify the DOM safely. Returning to English clears the translation cookie and reloads, with cart state preserved via localStorage.

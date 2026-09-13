@@ -1,0 +1,11 @@
+{
+  "name": "Remix Remix Remix Remix Remix Copy of KisanMandi",
+  "description": "An all-in-one AI-powered platform connecting farmers and artisans directly to buyers with fair pricing, quality assessment, and digital commerce.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

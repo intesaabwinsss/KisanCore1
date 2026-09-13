@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="text/javascript">
+    function googleTranslateElementInit() {
+      new google.translate.TranslateElement({
+        pageLanguage: 'en',
+        includedLanguages: 'en,hi,bn,ta,mr',
+        layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+      }, 'google_translate_element');
+    }
+  </script>
+  <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+</head>
+<body>
+  <p>Hello world</p>
+  <div id="google_translate_element"></div>
+  <script>
+    setTimeout(() => {
+      const combo = document.querySelector('.goog-te-combo');
+      if (combo) {
+        combo.value = 'hi';
+        combo.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log("Set to Hindi");
+        
+        setTimeout(() => {
+            combo.value = 'en';
+            combo.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log("Set to EN");
+        }, 3000);
+      }
+    }, 3000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'General Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-display: 'Bricolage Grotesque', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* Map Emerald to Jade (Primary) */
+  --color-emerald-50: #e8f5ec;
+  --color-emerald-100: #d1ebd9;
+  --color-emerald-200: #a3d7b3;
+  --color-emerald-300: #75c38d;
+  --color-emerald-400: #47af67;
+  --color-emerald-500: #1A7A4A;
+  --color-emerald-600: #156038;
+  --color-emerald-700: #104a2b;
+  --color-emerald-800: #0a331e;
+  --color-emerald-900: #051d11;
+  --color-emerald-950: #020f09;
+
+  /* Map Teal to Jade (Success/Accent) */
+  --color-teal-50: #e8f5ec;
+  --color-teal-100: #d1ebd9;
+  --color-teal-200: #a3d7b3;
+  --color-teal-300: #75c38d;
+  --color-teal-400: #47af67;
+  --color-teal-500: #1A7A4A;
+  --color-teal-600: #156038;
+  --color-teal-700: #104a2b;
+  --color-teal-800: #0a331e;
+  --color-teal-900: #051d11;
+
+  /* Map Slate to Cool Green-Gray */
+  --color-slate-50: #F4FBF7; /* elevated */
+  --color-slate-100: #E6F5EC; /* surface */
+  --color-slate-200: #D0EBE0; /* base */
+  --color-slate-300: #AFD8C8; /* inset */
+  --color-slate-400: #88BBA7; /* muted */
+  --color-slate-500: #669B86; /* tertiary text */
+  --color-slate-600: #4B7C69; /* secondary text */
+  --color-slate-700: #3C6354; /* strong border */
+  --color-slate-800: #325044; 
+  --color-slate-900: #294239; /* primary text */
+  --color-slate-950: #162620;
+
+  /* Map Amber to specific Amber */
+  --color-amber-50: #fcf4e5;
+  --color-amber-100: #f8e4c0;
+  --color-amber-500: #B06B0A;
+  --color-amber-600: #8a5308;
+  
+  /* Map Blue to Navy */
+  --color-blue-50: #e5ebf3;
+  --color-blue-100: #bfcee3;
+  --color-blue-500: #002E6E;
+  --color-blue-600: #002252;
+
+  /* Cool green-gray shadows */
+  --shadow-xs: 0 1px 2px rgba(22, 38, 32, 0.08);
+  --shadow-sm: 0 1px 2px rgba(22, 38, 32, 0.09), 0 4px 16px rgba(22, 38, 32, 0.07);
+  --shadow-md: 0 2px 4px rgba(22, 38, 32, 0.09), 0 8px 28px rgba(22, 38, 32, 0.09);
+  --shadow-lg: 0 4px 8px rgba(22, 38, 32, 0.09), 0 16px 52px rgba(22, 38, 32, 0.11);
+  --shadow-xl: 0 8px 16px rgba(22, 38, 32, 0.10), 0 32px 80px rgba(22, 38, 32, 0.12);
+}
+
+@layer utilities {
+  .gradient-border-organic {
+    position: relative;
+  }
+  .gradient-border-organic::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(to bottom right, rgba(26, 122, 74, 0.4), transparent);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 10;
+  }
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-slate-200);
+    color: var(--color-slate-900);
+  }
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+  }
+  
+  /* Global Noise Grain Overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: 9999;
+  }
+}
+
+/* Custom scrollbar matched to warm theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-slate-100);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-slate-400);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-emerald-500);
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s infinite ease-in-out;
+}
+
+/* Chatbot Markdown Styles (warm adapted) */
+.chat-markdown p { margin-bottom: 0.5em; }
+.chat-markdown p:last-child { margin-bottom: 0; }
+.chat-markdown strong { font-weight: 700; color: var(--color-slate-900); }
+.chat-markdown ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.5em; }
+.chat-markdown ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 0.5em; }
+.chat-markdown table { width: 100%; border-collapse: collapse; margin-top: 0.5em; margin-bottom: 0.5em; font-size: 0.85em; }
+.chat-markdown th, .chat-markdown td { border: 1px solid var(--color-slate-300); padding: 4px 8px; text-align: left; }
+.chat-markdown th { background-color: var(--color-slate-100); font-weight: bold; }
+.chat-markdown-user p { margin-bottom: 0.5em; }
+.chat-markdown-user p:last-child { margin-bottom: 0; }
+.chat-markdown-user strong { color: white; }
+
+/* Hide Google Translate UI elements */
+body {
+  top: 0 !important;
+}
+.skiptranslate iframe {
+  display: none !important;
+}
+.goog-te-banner-frame {
+  display: none !important;
+}
+.goog-te-spinner-pos {
+  display: none !important;
+}
+#goog-gt-tt {
+  display: none !important;
+}
